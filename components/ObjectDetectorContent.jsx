@@ -7,6 +7,7 @@ export default function ObjectDetectorContent() {
   const [model, setModel] = useState(null);
   const [loadingModel, setLoadingModel] = useState(true);
   const [videoUrl, setVideoUrl] = useState(null);
+  const [isVideoEnded, setIsVideoEnded] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -30,6 +31,16 @@ export default function ObjectDetectorContent() {
     if (file) {
       const url = URL.createObjectURL(file);
       setVideoUrl(url);
+      setIsVideoEnded(false);
+    }
+  };
+
+  const restartVideo = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+      setIsVideoEnded(false);
+      startDetection();
     }
   };
 
@@ -49,21 +60,18 @@ export default function ObjectDetectorContent() {
     const ctx = canvas.getContext('2d');
 
     const renderPredictions = async () => {
-      if (video.paused || video.ended) return;
+      if (video.paused || video.ended) {
+        if (video.ended) setIsVideoEnded(true);
+        return;
+      }
 
-      // Match canvas size to current video frame dimensions
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
       }
 
-      // Draw the current video frame onto the canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Detect objects in the video frame
       const predictions = await model.detect(video);
 
-      // Redraw frame to clear previous boxes, then draw video and new boxes
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -73,12 +81,10 @@ export default function ObjectDetectorContent() {
         const score = Math.round(prediction.score * 100);
         const strokeColor = getColorForClass(className);
 
-        // Draw Bounding Box
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 4;
         ctx.strokeRect(x, y, width, height);
 
-        // Draw Label Background & Text
         ctx.fillStyle = strokeColor;
         const textLabel = `${className}: ${score}%`;
         ctx.font = '16px Arial';
@@ -111,15 +117,14 @@ export default function ObjectDetectorContent() {
 
       {videoUrl && (
         <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
-          {/* Visible video element */}
           <video
             ref={videoRef}
             src={videoUrl}
             onPlay={startDetection}
+            onEnded={() => setIsVideoEnded(true)}
             controls
             style={{ display: 'block', maxWidth: '100%', maxHeight: '500px' }}
           />
-          {/* Overlay canvas matching video size precisely */}
           <canvas
             ref={canvasRef}
             style={{ 
@@ -131,6 +136,25 @@ export default function ObjectDetectorContent() {
               pointerEvents: 'none' 
             }}
           />
+
+          {isVideoEnded && (
+            <div style={{ marginTop: '1rem' }}>
+              <button
+                onClick={restartVideo}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#0070f3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                }}
+              >
+                🔄 Restart Detection
+              </button>
+            </div>
+          )}
         </div>
       )}
     </main>
