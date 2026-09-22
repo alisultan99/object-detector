@@ -37,9 +37,9 @@ export default function ObjectDetectorContent() {
 
   const restartVideo = () => {
     if (videoRef.current) {
+      setIsVideoEnded(false);
       videoRef.current.currentTime = 0;
       videoRef.current.play();
-      setIsVideoEnded(false);
       startDetection();
     }
   };
@@ -120,7 +120,10 @@ export default function ObjectDetectorContent() {
           <video
             ref={videoRef}
             src={videoUrl}
-            onPlay={startDetection}
+            onPlay={() => {
+              setIsVideoEnded(false);
+              startDetection();
+            }}
             onEnded={() => setIsVideoEnded(true)}
             controls
             style={{ display: 'block', maxWidth: '100%', maxHeight: '500px' }}
@@ -138,17 +141,19 @@ export default function ObjectDetectorContent() {
           />
 
           {isVideoEnded && (
-            <div style={{ marginTop: '1rem' }}>
+            <div style={{ marginTop: '15px' }}>
               <button
                 onClick={restartVideo}
                 style={{
-                  padding: '10px 20px',
+                  padding: '12px 24px',
                   backgroundColor: '#0070f3',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '5px',
+                  borderRadius: '6px',
                   fontSize: '16px',
+                  fontWeight: 'bold',
                   cursor: 'pointer',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
                 }}
               >
                 🔄 Restart Detection
