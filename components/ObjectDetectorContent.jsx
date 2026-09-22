@@ -48,16 +48,22 @@ export default function ObjectDetectorContent() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
-    video.play();
-
     const renderPredictions = async () => {
       if (video.paused || video.ended) return;
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Match canvas size to current video frame dimensions
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
 
+      // Draw the current video frame onto the canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Detect objects in the video frame
       const predictions = await model.detect(video);
 
+      // Redraw frame to clear previous boxes, then draw video and new boxes
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -67,10 +73,12 @@ export default function ObjectDetectorContent() {
         const score = Math.round(prediction.score * 100);
         const strokeColor = getColorForClass(className);
 
+        // Draw Bounding Box
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 4;
         ctx.strokeRect(x, y, width, height);
 
+        // Draw Label Background & Text
         ctx.fillStyle = strokeColor;
         const textLabel = `${className}: ${score}%`;
         ctx.font = '16px Arial';
@@ -103,6 +111,7 @@ export default function ObjectDetectorContent() {
 
       {videoUrl && (
         <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
+          {/* Visible video element */}
           <video
             ref={videoRef}
             src={videoUrl}
@@ -110,9 +119,17 @@ export default function ObjectDetectorContent() {
             controls
             style={{ display: 'block', maxWidth: '100%', maxHeight: '500px' }}
           />
+          {/* Overlay canvas matching video size precisely */}
           <canvas
             ref={canvasRef}
-            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+            style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              width: '100%', 
+              height: '100%', 
+              pointerEvents: 'none' 
+            }}
           />
         </div>
       )}
