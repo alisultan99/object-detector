@@ -1,21 +1,22 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import * as tf from '@tensorflow/tfjs';
-import * as cocoSsd from '@tensorflow-models/coco-ssd';
 
 export default function ObjectDetectorApp() {
   const [model, setModel] = useState(null);
   const [loadingModel, setLoadingModel] = useState(true);
   const [videoUrl, setVideoUrl] = useState(null);
-  const [isDetecting, setIsDetecting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // 1. Load COCO-SSD Model on component mount
+  // Ensure safe client-side loading
   useEffect(() => {
+    setIsMounted(true);
     async function loadModel() {
       try {
+        const tf = await import('@tensorflow/tfjs');
+        const cocoSsd = await import('@tensorflow-models/coco-ssd');
         await tf.ready();
         const loadedModel = await cocoSsd.load();
         setModel(loadedModel);
@@ -27,17 +28,16 @@ export default function ObjectDetectorApp() {
     loadModel();
   }, []);
 
-  // 2. Handle video file upload
+  if (!isMounted) return null;
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
       const url = URL.createObjectURL(file);
       setVideoUrl(url);
-      setIsDetecting(false);
     }
   };
 
-  // Generate consistent pseudo-random colors for different object classes
   const getColorForClass = (className) => {
     let hash = 0;
     for (let i = 0; i < className.length; i++) {
@@ -47,10 +47,8 @@ export default function ObjectDetectorApp() {
     return '#' + '0'.repeat(6 - color.length) + color;
   };
 
-  // 3. Main Detection Loop
   const startDetection = () => {
     if (!model || !videoRef.current || !canvasRef.current) return;
-    setIsDetecting(true);
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -58,35 +56,26 @@ export default function ObjectDetectorApp() {
     video.play();
 
     const renderPredictions = async () => {
-      if (video.paused || video.ended) {
-        setIsDetecting(false);
-        return;
-      }
+      if (video.paused || video.ended) return;
 
-      // Match canvas dimensions to video dimensions
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // Detect objects in the current video frame
       const predictions = await model.detect(video);
 
-      // Clear canvas and draw current video frame image
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Draw bounding boxes and multi-class labels
       predictions.forEach((prediction) => {
         const [x, y, width, height] = prediction.bbox;
         const className = prediction.class;
         const score = Math.round(prediction.score * 100);
         const strokeColor = getColorForClass(className);
 
-        // Draw Bounding Box
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 4;
         ctx.strokeRect(x, y, width, height);
 
-        // Draw Label Background & Text
         ctx.fillStyle = strokeColor;
         const textLabel = `${className}: ${score}%`;
         ctx.font = '16px Arial';
@@ -119,7 +108,6 @@ export default function ObjectDetectorApp() {
 
       {videoUrl && (
         <div style={{ position: 'relative', display: 'inline-block', marginTop: '1rem' }}>
-          {/* Hidden video element feeding frames */}
           <video
             ref={videoRef}
             src={videoUrl}
@@ -127,7 +115,6 @@ export default function ObjectDetectorApp() {
             controls
             style={{ display: 'block', maxWidth: '100%', maxHeight: '500px' }}
           />
-          {/* Canvas overlay displaying bounding boxes */}
           <canvas
             ref={canvasRef}
             style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
